@@ -38,6 +38,29 @@ const Overview = ({ telemetry }: { telemetry: any[] }) => {
 
 const PipelineIntegrity = () => {
   const [data, setData] = useState<any[]>([]);
+  const [mitigating, setMitigating] = useState(false);
+  const [mitigationLog, setMitigationLog] = useState('');
+
+  const triggerMitigation = async (action: string) => {
+    setMitigating(true);
+    setMitigationLog('Routing safety signals to actuator systems...');
+    try {
+      const res = await fetch("http://127.0.0.1:8005/api/pipeline/mitigate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      setMitigationLog(data.message || 'Mitigation signal acknowledged.');
+    } catch (e) {
+      setMitigationLog('Signal routing failed. Check link status.');
+    } finally {
+      setTimeout(() => {
+        setMitigating(false);
+        setMitigationLog('');
+      }, 4000);
+    }
+  };
   
   useEffect(() => {
     console.log("PetroSight Pipeline: Opening SSE stream channel...");
@@ -84,7 +107,7 @@ const PipelineIntegrity = () => {
           </div>
         ))}
       </div>
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 flex flex-col items-center justify-center min-h-[400px]">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 flex flex-col items-center justify-center min-h-[360px]">
         <h3 className="text-lg font-bold text-slate-100 mb-8 self-start">Fiber Optic DAS Stream (Spatial Acoustic Profiling)</h3>
         <div className="w-full max-w-4xl h-16 bg-slate-800 rounded-full relative overflow-hidden border border-slate-700 flex">
           {data.map((pt, i) => (
@@ -102,6 +125,36 @@ const PipelineIntegrity = () => {
              <span className="text-emerald-400">Stream Nominal: Sensor Fusion Active</span>
            )}
         </p>
+
+        {currentPt?.is_anomaly && (
+          <div className="w-full max-w-4xl mt-6 p-6 bg-slate-950 border border-red-950/40 rounded-xl flex flex-col md:flex-row gap-6 items-center">
+            <div className="flex-1 space-y-2 text-left">
+              <h4 className="text-red-400 font-bold text-sm tracking-wider uppercase">Active Pipeline Flow Controls</h4>
+              <p className="text-xs text-slate-400">Acoustic anomalies detected. Operator intervention required to vent trunkline segments or route bypass paths.</p>
+              {mitigationLog && (
+                <div className="text-[11px] font-mono text-cyan-400 bg-cyan-950/20 border border-cyan-800/30 p-2 rounded mt-2">
+                  <span className="animate-pulse">⚡</span> {mitigationLog}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button 
+                disabled={mitigating}
+                onClick={() => triggerMitigation('Bypass Valve V-104')}
+                className="px-4 py-3 bg-red-950/40 border border-red-500/40 hover:bg-red-950/80 hover:border-red-400 text-red-200 text-xs font-bold rounded-lg transition-all"
+              >
+                {mitigating ? 'Processing...' : 'Activate Bypass V-104'}
+              </button>
+              <button 
+                disabled={mitigating}
+                onClick={() => triggerMitigation('Venting Relief Valve PV-20')}
+                className="px-4 py-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 text-slate-200 text-xs font-bold rounded-lg transition-all"
+              >
+                {mitigating ? 'Processing...' : 'Vent Strain via PV-20'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -109,6 +162,29 @@ const PipelineIntegrity = () => {
 
 const Compressors = () => {
   const [data, setData] = useState<any[]>([]);
+  const [mitigating, setMitigating] = useState(false);
+  const [mitigationLog, setMitigationLog] = useState('');
+
+  const triggerMitigation = async (action: string) => {
+    setMitigating(true);
+    setMitigationLog('Balancing compression cycles...');
+    try {
+      const res = await fetch("http://127.0.0.1:8005/api/compressor/mitigate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      setMitigationLog(data.message || 'Mitigation complete.');
+    } catch (e) {
+      setMitigationLog('Recalibration failed.');
+    } finally {
+      setTimeout(() => {
+        setMitigating(false);
+        setMitigationLog('');
+      }, 4000);
+    }
+  };
   
   useEffect(() => {
     console.log("PetroSight Compressors: Opening SSE stream channel...");
@@ -182,10 +258,29 @@ const Compressors = () => {
       <div className="col-span-1 flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6">
         <h3 className="text-xl font-bold text-slate-100 mb-4 border-b border-slate-800 pb-2">Diagnostic Agent</h3>
         {currentPt?.is_anomaly ? (
-          <div className="p-4 rounded bg-red-500/10 border border-red-500/20 text-red-100 mt-4">
-            <p className="text-red-400 font-bold mb-2 uppercase text-sm">{currentPt.anomaly_type}</p>
-            <p className="text-sm mb-6 text-slate-300">{currentPt.recommended_solution}</p>
-            <button className="w-full bg-red-600/80 hover:bg-red-500 py-3 rounded font-bold shadow-lg shadow-red-900/20 transition-all">Initiate Safe Shutdown</button>
+          <div className="p-4 rounded bg-red-500/10 border border-red-500/20 text-red-100 mt-4 flex-1 flex flex-col justify-between">
+            <div>
+              <p className="text-red-400 font-bold mb-2 uppercase text-sm">{currentPt.anomaly_type}</p>
+              <p className="text-sm mb-6 text-slate-300">{currentPt.recommended_solution}</p>
+            </div>
+            
+            <div className="space-y-3">
+              {mitigationLog && (
+                <div className="text-[11px] font-mono text-cyan-400 bg-cyan-950/20 border border-cyan-800/30 p-2 rounded">
+                  <span className="animate-pulse">⚡</span> {mitigationLog}
+                </div>
+              )}
+              <button 
+                disabled={mitigating}
+                onClick={() => triggerMitigation('recalibrate')}
+                className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800 py-3 rounded font-bold text-sm shadow-lg shadow-cyan-900/20 transition-all text-white"
+              >
+                {mitigating ? 'Recalibrating...' : 'Recalibrate Harmonic Throttling'}
+              </button>
+              <button className="w-full bg-red-600/80 hover:bg-red-500 py-3 rounded font-bold text-sm shadow-lg shadow-red-900/20 transition-all text-white">
+                Initiate Safe Shutdown
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 mt-4">

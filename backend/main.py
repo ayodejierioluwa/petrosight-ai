@@ -33,6 +33,28 @@ pipeline_engine = PipelineML()
 compressor_engine = CompressorML()
 briefing_engine = AgenticBriefingEngine()
 
+# Real-time Flow Mitigation Global State Overrides
+pipeline_override_until = None
+compressor_override_until = None
+
+from pydantic import BaseModel
+class MitigationRequest(BaseModel):
+    action: str
+
+@app.post("/api/pipeline/mitigate")
+def pipeline_mitigate(req: MitigationRequest):
+    global pipeline_override_until
+    from datetime import datetime, timedelta
+    pipeline_override_until = datetime.now() + timedelta(seconds=25)
+    return {"status": "success", "message": f"Pipeline mitigation action '{req.action}' executed successfully. Systems adjusting.", "until": pipeline_override_until.isoformat()}
+
+@app.post("/api/compressor/mitigate")
+def compressor_mitigate(req: MitigationRequest):
+    global compressor_override_until
+    from datetime import datetime, timedelta
+    compressor_override_until = datetime.now() + timedelta(seconds=25)
+    return {"status": "success", "message": f"Compressor mitigation action '{req.action}' executed successfully. Harmonics balancing.", "until": compressor_override_until.isoformat()}
+
 @app.get("/")
 def read_root():
     return {"status": "online", "message": "Welcome to PetroSight AI API"}
@@ -172,12 +194,22 @@ async def assets_telemetry_stream():
 async def pipeline_telemetry_stream():
     """Real-time SSE stream for pipeline sensor fusion telemetry."""
     async def event_generator():
+        global pipeline_override_until
         df = pipeline_engine.get_processed_data()
         total_records = len(df)
         offset = 0
         while True:
             row = df.iloc[offset].to_dict()
             row["timestamp"] = datetime.now().isoformat()
+            
+            # Check override
+            if pipeline_override_until and datetime.now() < pipeline_override_until:
+                row["is_anomaly"] = False
+                row["acoustic_amplitude_db"] = 15.2 + (offset % 5) * 0.4
+                row["flow_rate_bpd"] = 5210.0 + (offset % 10) * 10
+                row["pressure_psi"] = 620.0 + (offset % 10) * 3
+                row["anomaly_type"] = "None"
+                
             yield f"data: {json.dumps(row)}\n\n"
             offset = (offset + 1) % total_records
             await asyncio.sleep(0.2)
@@ -187,12 +219,22 @@ async def pipeline_telemetry_stream():
 async def compressors_telemetry_stream():
     """Real-time SSE stream for compressor machine telemetry."""
     async def event_generator():
+        global compressor_override_until
         df = compressor_engine.get_processed_data()
         total_records = len(df)
         offset = 0
         while True:
             row = df.iloc[offset].to_dict()
             row["timestamp"] = datetime.now().isoformat()
+            
+            # Check override
+            if compressor_override_until and datetime.now() < compressor_override_until:
+                row["is_anomaly"] = False
+                row["vibration_in_sec"] = 0.12 + (offset % 5) * 0.02
+                row["oil_temp_f"] = 142.0 + (offset % 5) * 2.1
+                row["discharge_psi"] = 310.0 + (offset % 10) * 5
+                row["anomaly_type"] = "None"
+                
             yield f"data: {json.dumps(row)}\n\n"
             offset = (offset + 1) % total_records
             await asyncio.sleep(0.2)

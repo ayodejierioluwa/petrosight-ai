@@ -229,6 +229,15 @@ export default function Dashboard() {
           }
           return updated;
         });
+        
+        // Post real-time event signal up to Executive NOC Dashboard
+        if (typeof window !== 'undefined') {
+          window.parent.postMessage({
+            type: 'PETROSIGHT_TELEMETRY_UPDATE',
+            is_anomaly: pt.is_anomaly,
+            anomaly_type: pt.is_anomaly ? pt.anomaly_type : null
+          }, '*');
+        }
       } catch (e) {
         console.error("Overview Stream Parse error:", e);
       }

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from scraper import DatasetScraper
 from data_generator import generate_synthetic_telemetry, generate_mock_maintenance_logs
 from ml_pipeline import MLPipeline
@@ -7,6 +8,8 @@ from pipeline_ml import PipelineML
 from compressor_ml import CompressorML
 from agentic_briefing import AgenticBriefingEngine
 from datetime import datetime, timedelta
+import asyncio
+import json
 
 app = FastAPI(title="PetroSight AI API")
 
@@ -149,3 +152,48 @@ def get_compressor_telemetry(offset: int = 0, limit: int = 30):
 def get_latest_briefing():
     """Generate and serve a dynamic Agentic Briefing report."""
     return briefing_engine.generate_briefing()
+
+@app.get("/api/assets/telemetry_stream")
+async def assets_telemetry_stream():
+    """Real-time SSE stream for ML predictive machine telemetry."""
+    async def event_generator():
+        df = ml_engine.get_processed_data()
+        total_records = len(df)
+        offset = 0
+        while True:
+            row = df.iloc[offset].to_dict()
+            row["timestamp"] = datetime.now().isoformat()
+            yield f"data: {json.dumps(row)}\n\n"
+            offset = (offset + 1) % total_records
+            await asyncio.sleep(0.2)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.get("/api/pipeline/telemetry_stream")
+async def pipeline_telemetry_stream():
+    """Real-time SSE stream for pipeline sensor fusion telemetry."""
+    async def event_generator():
+        df = pipeline_engine.get_processed_data()
+        total_records = len(df)
+        offset = 0
+        while True:
+            row = df.iloc[offset].to_dict()
+            row["timestamp"] = datetime.now().isoformat()
+            yield f"data: {json.dumps(row)}\n\n"
+            offset = (offset + 1) % total_records
+            await asyncio.sleep(0.2)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.get("/api/compressors/telemetry_stream")
+async def compressors_telemetry_stream():
+    """Real-time SSE stream for compressor machine telemetry."""
+    async def event_generator():
+        df = compressor_engine.get_processed_data()
+        total_records = len(df)
+        offset = 0
+        while True:
+            row = df.iloc[offset].to_dict()
+            row["timestamp"] = datetime.now().isoformat()
+            yield f"data: {json.dumps(row)}\n\n"
+            offset = (offset + 1) % total_records
+            await asyncio.sleep(0.2)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -38,22 +38,34 @@ const Overview = ({ telemetry }: { telemetry: any[] }) => {
 
 const PipelineIntegrity = () => {
   const [data, setData] = useState<any[]>([]);
-  const offsetRef = useRef(0);
   
   useEffect(() => {
-    const fetchData = async () => {
+    console.log("PetroSight Pipeline: Opening SSE stream channel...");
+    const eventSource = new EventSource("http://127.0.0.1:8005/api/pipeline/telemetry_stream");
+    
+    eventSource.onmessage = (event) => {
       try {
-        const response = await fetch(`http://127.0.0.1:8005/api/pipeline/processed_telemetry?offset=${offsetRef.current}&limit=40`);
-        const result = await response.json();
-        if (result && result.data) {
-          setData(result.data);
-          offsetRef.current = (offsetRef.current + 2) % 1000;
-        }
-      } catch (e) {}
+        const pt = JSON.parse(event.data);
+        setData(prev => {
+          const updated = [...prev, pt];
+          if (updated.length > 40) {
+            return updated.slice(updated.length - 40);
+          }
+          return updated;
+        });
+      } catch (e) {
+        console.error("Pipeline Stream Parse error:", e);
+      }
     };
-    fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
+
+    eventSource.onerror = (err) => {
+      console.error("Pipeline SSE connection lost. Retrying...", err);
+    };
+
+    return () => {
+      console.log("Pipeline: Unsubscribing from SSE.");
+      eventSource.close();
+    };
   }, []);
 
   const currentPt = data.length > 0 ? data[data.length - 1] : null;
@@ -97,22 +109,34 @@ const PipelineIntegrity = () => {
 
 const Compressors = () => {
   const [data, setData] = useState<any[]>([]);
-  const offsetRef = useRef(0);
   
   useEffect(() => {
-    const fetchData = async () => {
+    console.log("PetroSight Compressors: Opening SSE stream channel...");
+    const eventSource = new EventSource("http://127.0.0.1:8005/api/compressors/telemetry_stream");
+    
+    eventSource.onmessage = (event) => {
       try {
-        const response = await fetch(`http://127.0.0.1:8005/api/compressors/processed_telemetry?offset=${offsetRef.current}&limit=20`);
-        const result = await response.json();
-        if (result && result.data) {
-          setData(result.data);
-          offsetRef.current = (offsetRef.current + 1) % 1000;
-        }
-      } catch (e) {}
+        const pt = JSON.parse(event.data);
+        setData(prev => {
+          const updated = [...prev, pt];
+          if (updated.length > 20) {
+            return updated.slice(updated.length - 20);
+          }
+          return updated;
+        });
+      } catch (e) {
+        console.error("Compressor Stream Parse error:", e);
+      }
     };
-    fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
+
+    eventSource.onerror = (err) => {
+      console.error("Compressor SSE connection lost. Retrying...", err);
+    };
+
+    return () => {
+      console.log("Compressors: Unsubscribing from SSE.");
+      eventSource.close();
+    };
   }, []);
 
   const currentPt = data.length > 0 ? data[data.length - 1] : null;
@@ -192,19 +216,32 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const fetchTelemetry = async () => {
+    console.log("PetroSight Overview: Opening asset telemetry SSE channel...");
+    const eventSource = new EventSource("http://127.0.0.1:8005/api/assets/telemetry_stream");
+    
+    eventSource.onmessage = (event) => {
       try {
-        const response = await fetch(`http://127.0.0.1:8005/api/assets/processed_telemetry?offset=${offsetRef.current}&limit=40`);
-        const result = await response.json();
-        if (result && result.data) {
-          setTelemetry(result.data);
-          offsetRef.current = (offsetRef.current + 5) % 9000;
-        }
-      } catch (e) {}
+        const pt = JSON.parse(event.data);
+        setTelemetry(prev => {
+          const updated = [...prev, pt];
+          if (updated.length > 40) {
+            return updated.slice(updated.length - 40);
+          }
+          return updated;
+        });
+      } catch (e) {
+        console.error("Overview Stream Parse error:", e);
+      }
     };
-    fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 3000);
-    return () => clearInterval(interval);
+
+    eventSource.onerror = (err) => {
+      console.error("Overview SSE channel lost. Retrying...", err);
+    };
+
+    return () => {
+      console.log("Overview: Unsubscribing from SSE.");
+      eventSource.close();
+    };
   }, []);
 
   return (
